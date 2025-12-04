@@ -271,13 +271,15 @@ def scan_and_compress(directory: str):
                     compressed_mb = compressed_size / (1024 * 1024)
                     
                     if compressed_size < original_size:
-                        # Delete original, keep compressed
+                        # Delete original, rename compressed to original name
                         try:
                             os.remove(input_path)
+                            # Rename compressed file to original name (remove -small suffix)
+                            os.rename(output_path, input_path)
                             deleted_originals += 1
-                            print(f"\n{Fore.GREEN}✓ Удален оригинал{Style.RESET_ALL} ({original_mb:.1f}MB → {compressed_mb:.1f}MB)")
+                            print(f"\n{Fore.GREEN}✓ Заменен оригинал{Style.RESET_ALL} ({original_mb:.1f}MB → {compressed_mb:.1f}MB)")
                         except Exception as e:
-                            print(f"\n{Fore.RED}Ошибка удаления оригинала: {e}{Style.RESET_ALL}")
+                            print(f"\n{Fore.RED}Ошибка замены файла: {e}{Style.RESET_ALL}")
                     else:
                         # Delete compressed, keep original
                         try:
