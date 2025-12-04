@@ -39,23 +39,32 @@ def compress_video_file(input_path: str, output_path: str) -> bool:
     try:
         # 1. Compress with ffmpeg
         # "$FFMPEG" -i "$INPUT" -c:v libx264 -crf 22 -preset medium -c:a aac -b:a 128k -map_metadata 0 "$OUTPUT"
+        # Added -pix_fmt yuv420p for better compatibility (QuickTime etc)
         ffmpeg_cmd = [
             FFMPEG_PATH,
-            "-y", # Overwrite output file if exists (we check before calling this)
+            "-y", # Overwrite output file if exists
             "-i", input_path,
             "-c:v", "libx264",
             "-crf", "22",
             "-preset", "medium",
+            "-pix_fmt", "yuv420p", # Ensure compatibility
             "-c:a", "aac",
             "-b:a", "128k",
             "-map_metadata", "0",
             output_path
         ]
         
-        # Suppress ffmpeg output unless there's an error
+        # Run ffmpeg
         result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+        
         if result.returncode != 0:
-            print(f"\n{Fore.RED}FFmpeg error for {input_path}:{Style.RESET_ALL}\n{result.stderr}")
+            print(f"\n{Fore.RED}FFmpeg error for {input_path}:{Style.RESET_ALL}")
+            print(result.stderr) # Print the error details
+            return False
+
+        # Verify output file exists and has size
+        if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+            print(f"\n{Fore.RED}FFmpeg failed to create valid file: {output_path}{Style.RESET_ALL}")
             return False
 
         # 2. Copy metadata with exiftool
@@ -69,15 +78,27 @@ def compress_video_file(input_path: str, output_path: str) -> bool:
         ]
         
         result = subprocess.run(exiftool_cmd, capture_output=True, text=True)
+        
         if result.returncode != 0:
-            print(f"\n{Fore.RED}Exiftool error for {input_path}:{Style.RESET_ALL}\n{result.stderr}")
-            # Don't fail the whole process if just metadata copy fails, but warn
+            print(f"\n{Fore.YELLOW}Exiftool warning for {input_path}:{Style.RESET_ALL}")
+            print(result.stderr)
+            # We don't fail here because the video is likely fine, just metadata copy had issues
+            # But we should check if the file is still valid
+            if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                 print(f"\n{Fore.RED}Exiftool corrupted the file: {output_path}{Style.RESET_ALL}")
+                 return False
             return True 
 
         return True
 
     except Exception as e:
         print(f"\n{Fore.RED}Exception processing {input_path}:{Style.RESET_ALL} {e}")
+        # Try to cleanup bad output
+        if os.path.exists(output_path):
+            try:
+                os.remove(output_path)
+            except:
+                pass
         return False
 
 def scan_and_compress(directory: str):
