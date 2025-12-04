@@ -234,13 +234,16 @@ def scan_and_compress(directory: str):
         if not os.path.exists(input_path):
             continue
         
+        # Get file size for display
+        file_size_mb = os.path.getsize(input_path) / (1024 * 1024)
+        
         # Get duration for progress bar
         duration = get_video_duration(input_path)
         if not duration:
             duration = 100 # Fallback if duration unknown
             
         # Create progress bar for this file
-        # Format: Compressing: filename: 20%|...| 8/40 [time, rate]
+        # Format: Compressing: filename (123.4MB): 20%|...| 8/40 [time, rate]
         bar_format = (
             f'{Fore.CYAN}{{desc}}{Style.RESET_ALL}: '
             f'{Fore.GREEN}{{percentage:3.0f}}%{Style.RESET_ALL} '
@@ -251,7 +254,7 @@ def scan_and_compress(directory: str):
         
         with tqdm(total=duration, 
                   unit='s', 
-                  desc=f"Compressing: {filename}",
+                  desc=f"Compressing: {filename} ({file_size_mb:.1f}MB)",
                   bar_format=bar_format,
                   colour='green') as pbar:
             
