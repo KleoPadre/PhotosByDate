@@ -185,11 +185,6 @@ def scan_and_compress(directory: str):
             # Skip already compressed files
             if file.endswith("-small.mp4"):
                 continue
-            
-            # Skip videos smaller than 30MB
-            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
-            if file_size_mb < 30:
-                continue
                 
             # Check if compressed version already exists
             name_without_ext = os.path.splitext(file)[0]
