@@ -235,6 +235,10 @@ def scan_and_compress(directory: str):
     for idx, (input_path, output_path) in enumerate(videos_to_process, 1):
         filename = os.path.basename(input_path)
         
+        # Skip if input file no longer exists (e.g., was deleted in previous iteration)
+        if not os.path.exists(input_path):
+            continue
+        
         # Get duration for progress bar
         duration = get_video_duration(input_path)
         if not duration:
