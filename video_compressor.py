@@ -54,14 +54,17 @@ def parse_time_to_seconds(time_str: str) -> float:
     except:
         return 0.0
 
-def compress_video_file(input_path: str, output_path: str, pbar: Optional[tqdm] = None) -> bool:
+def compress_video_file(input_path: str, output_path: str, pbar: Optional[tqdm] = None) -> Tuple[bool, int, int]:
     """
     Compress a video file using ffmpeg and copy metadata using exiftool.
     Updates the provided progress bar if given.
-    Returns True if successful, False otherwise.
+    Returns (success, original_size, compressed_size).
     """
     if not FFMPEG_PATH or not EXIFTOOL_PATH:
-        return False
+        return False, 0, 0
+
+    # Get original file size
+    original_size = os.path.getsize(input_path)
 
     try:
         # 1. Compress with ffmpeg
@@ -114,12 +117,14 @@ def compress_video_file(input_path: str, output_path: str, pbar: Optional[tqdm] 
 
         if process.returncode != 0:
             print(f"\n{Fore.RED}FFmpeg error for {input_path}{Style.RESET_ALL}")
-            return False
+            return False, original_size, 0
 
         # Verify output file exists and has size
         if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
             print(f"\n{Fore.RED}FFmpeg failed to create valid file: {output_path}{Style.RESET_ALL}")
-            return False
+            return False, original_size, 0
+
+        compressed_size = os.path.getsize(output_path)
 
         # 2. Copy metadata with exiftool
         exiftool_cmd = [
@@ -137,10 +142,10 @@ def compress_video_file(input_path: str, output_path: str, pbar: Optional[tqdm] 
             print(result.stderr)
             if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
                  print(f"\n{Fore.RED}Exiftool corrupted the file: {output_path}{Style.RESET_ALL}")
-                 return False
-            return True 
+                 return False, original_size, 0
+            return True, original_size, compressed_size
 
-        return True
+        return True, original_size, compressed_size
 
     except Exception as e:
         print(f"\n{Fore.RED}Exception processing {input_path}:{Style.RESET_ALL} {e}")
@@ -150,7 +155,7 @@ def compress_video_file(input_path: str, output_path: str, pbar: Optional[tqdm] 
                 os.remove(output_path)
             except:
                 pass
-        return False
+        return False, original_size, 0
 
 def scan_and_compress(directory: str):
     """
@@ -197,9 +202,30 @@ def scan_and_compress(directory: str):
     total_files = len(videos_to_process)
     print(f"Found {total_files} videos to compress.\n")
     
+    # Ask user about auto-delete
+    while True:
+        print("Удалять файлы после сжатия?")
+        print(f"  1 - {Fore.GREEN}Да (удалять оригинал если сжатый меньше, иначе удалять сжатый){Style.RESET_ALL}")
+        print(f"  2 - {Fore.YELLOW}Нет (сохранять оба файла){Style.RESET_ALL}")
+        
+        delete_choice = input("\nВаш выбор (1 или 2): ").strip()
+        
+        if delete_choice == "1":
+            auto_delete = True
+            print(f"✓ Автоудаление: {Fore.GREEN}Включено{Style.RESET_ALL}\n")
+            break
+        elif delete_choice == "2":
+            auto_delete = False
+            print(f"✓ Автоудаление: {Fore.YELLOW}Выключено{Style.RESET_ALL}\n")
+            break
+        else:
+            print(f"{Fore.RED}⚠️  Неверный выбор. Введите 1 или 2.{Style.RESET_ALL}\n")
+    
     # Process videos
     success_count = 0
     fail_count = 0
+    deleted_originals = 0
+    deleted_compressed = 0
     
     for idx, (input_path, output_path) in enumerate(videos_to_process, 1):
         filename = os.path.basename(input_path)
@@ -225,8 +251,32 @@ def scan_and_compress(directory: str):
                   bar_format=bar_format,
                   colour='green') as pbar:
             
-            if compress_video_file(input_path, output_path, pbar):
+            success, original_size, compressed_size = compress_video_file(input_path, output_path, pbar)
+            
+            if success:
                 success_count += 1
+                
+                # Auto-delete logic
+                if auto_delete:
+                    original_mb = original_size / (1024 * 1024)
+                    compressed_mb = compressed_size / (1024 * 1024)
+                    
+                    if compressed_size < original_size:
+                        # Delete original, keep compressed
+                        try:
+                            os.remove(input_path)
+                            deleted_originals += 1
+                            print(f"\n{Fore.GREEN}✓ Удален оригинал{Style.RESET_ALL} ({original_mb:.1f}MB → {compressed_mb:.1f}MB)")
+                        except Exception as e:
+                            print(f"\n{Fore.RED}Ошибка удаления оригинала: {e}{Style.RESET_ALL}")
+                    else:
+                        # Delete compressed, keep original
+                        try:
+                            os.remove(output_path)
+                            deleted_compressed += 1
+                            print(f"\n{Fore.YELLOW}✓ Удален сжатый файл{Style.RESET_ALL} (сжатие не уменьшило размер: {original_mb:.1f}MB → {compressed_mb:.1f}MB)")
+                        except Exception as e:
+                            print(f"\n{Fore.RED}Ошибка удаления сжатого: {e}{Style.RESET_ALL}")
             else:
                 fail_count += 1
             
@@ -234,6 +284,11 @@ def scan_and_compress(directory: str):
     print(f"Successfully compressed: {success_count}")
     if fail_count > 0:
         print(f"{Fore.RED}Failed: {fail_count}{Style.RESET_ALL}")
+    
+    if auto_delete:
+        print(f"\n{Fore.CYAN}Статистика удаления:{Style.RESET_ALL}")
+        print(f"Удалено оригиналов: {deleted_originals}")
+        print(f"Удалено сжатых: {deleted_compressed}")
     
     # Notify user (macOS only)
     try:
