@@ -33,7 +33,7 @@ from file_copier import (
     validate_paths,
     restructure_for_smart_mode # НОВАЯ ФУНКЦИЯ ДЛЯ УМНОЙ СОРТИРОВКИ
 )
-
+from video_compressor import scan_and_compress
 
 def get_grouping_mode_input() -> str:
     """
@@ -400,15 +400,45 @@ def main():
         logger, log_filename = setup_logger()
         stats = LoggerStats()
         
-        # Получаем пути и настройки от пользователя
-        source_path, destination_path, operation_mode, process_no_date, grouping_mode = get_user_input()
+        print("=" * 60)
+        print("МЕДИА ИНСТРУМЕНТЫ")
+        print("=" * 60)
+        print("Выберите действие:")
+        print(f"  1 - {Fore.CYAN}Сортировка фото и видео{Style.RESET_ALL}")
+        print(f"  2 - {Fore.CYAN}Сжатие видео{Style.RESET_ALL}")
         
-        # Обрабатываем файлы
-        process_files(source_path, destination_path, logger, stats, operation_mode, process_no_date, grouping_mode)
+        action_choice = input("\nВаш выбор (1 или 2): ").strip()
         
-        # Сообщаем где лог
-        print(f"Лог сохранён в: {log_filename}")
-        print(f"{'='*60}\n")
+        if action_choice == "2":
+            # Режим сжатия видео
+            print(f"\n✓ Выбран режим: {Fore.CYAN}Сжатие видео{Style.RESET_ALL}\n")
+            
+            while True:
+                target_path = input("Введите путь к папке с видео: ").strip()
+                target_path = target_path.strip("'\"")
+                target_path = os.path.expanduser(target_path)
+                
+                if not os.path.exists(target_path) or not os.path.isdir(target_path):
+                    print(f"⚠️  Папка не существует: {target_path}\n")
+                    continue
+                break
+            
+            scan_and_compress(target_path)
+            
+        else:
+            # Режим сортировки (по умолчанию)
+            if action_choice != "1":
+                print(f"По умолчанию выбран режим: {Fore.CYAN}Сортировка фото и видео{Style.RESET_ALL}\n")
+            
+            # Получаем пути и настройки от пользователя
+            source_path, destination_path, operation_mode, process_no_date, grouping_mode = get_user_input()
+            
+            # Обрабатываем файлы
+            process_files(source_path, destination_path, logger, stats, operation_mode, process_no_date, grouping_mode)
+            
+            # Сообщаем где лог
+            print(f"Лог сохранён в: {log_filename}")
+            print(f"{'='*60}\n")
         
     except KeyboardInterrupt:
         print("\n\n⚠️  Операция прервана пользователем")
