@@ -261,35 +261,36 @@ def scan_and_compress(directory: str):
                   colour='green') as pbar:
             
             success, original_size, compressed_size = compress_video_file(input_path, output_path, pbar)
+        
+        # Process results after closing progress bar
+        if success:
+            success_count += 1
             
-            if success:
-                success_count += 1
+            # Auto-delete logic
+            if auto_delete:
+                original_mb = original_size / (1024 * 1024)
+                compressed_mb = compressed_size / (1024 * 1024)
                 
-                # Auto-delete logic
-                if auto_delete:
-                    original_mb = original_size / (1024 * 1024)
-                    compressed_mb = compressed_size / (1024 * 1024)
-                    
-                    if compressed_size < original_size:
-                        # Delete original, rename compressed to original name
-                        try:
-                            os.remove(input_path)
-                            # Rename compressed file to original name (remove -small suffix)
-                            os.rename(output_path, input_path)
-                            deleted_originals += 1
-                            print(f"\n{Fore.GREEN}✓ Заменен оригинал{Style.RESET_ALL} ({original_mb:.1f}MB → {compressed_mb:.1f}MB)")
-                        except Exception as e:
-                            print(f"\n{Fore.RED}Ошибка замены файла: {e}{Style.RESET_ALL}")
-                    else:
-                        # Delete compressed, keep original
-                        try:
-                            os.remove(output_path)
-                            deleted_compressed += 1
-                            print(f"\n{Fore.YELLOW}✓ Удален сжатый файл{Style.RESET_ALL} (сжатие не уменьшило размер: {original_mb:.1f}MB → {compressed_mb:.1f}MB)")
-                        except Exception as e:
-                            print(f"\n{Fore.RED}Ошибка удаления сжатого: {e}{Style.RESET_ALL}")
-            else:
-                fail_count += 1
+                if compressed_size < original_size:
+                    # Delete original, rename compressed to original name
+                    try:
+                        os.remove(input_path)
+                        # Rename compressed file to original name (remove -small suffix)
+                        os.rename(output_path, input_path)
+                        deleted_originals += 1
+                        print(f"{Fore.GREEN}✓ Заменен оригинал{Style.RESET_ALL} ({original_mb:.1f}MB → {compressed_mb:.1f}MB)")
+                    except Exception as e:
+                        print(f"{Fore.RED}Ошибка замены файла: {e}{Style.RESET_ALL}")
+                else:
+                    # Delete compressed, keep original
+                    try:
+                        os.remove(output_path)
+                        deleted_compressed += 1
+                        print(f"{Fore.YELLOW}✓ Удален сжатый файл{Style.RESET_ALL} (сжатие не уменьшило размер: {original_mb:.1f}MB → {compressed_mb:.1f}MB)")
+                    except Exception as e:
+                        print(f"{Fore.RED}Ошибка удаления сжатого: {e}{Style.RESET_ALL}")
+        else:
+            fail_count += 1
             
     print(f"\n{Fore.GREEN}Done!{Style.RESET_ALL}")
     print(f"Successfully compressed: {success_count}")
