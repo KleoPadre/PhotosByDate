@@ -34,6 +34,8 @@ from file_copier import (
     restructure_for_smart_mode # НОВАЯ ФУНКЦИЯ ДЛЯ УМНОЙ СОРТИРОВКИ
 )
 from video_compressor import scan_and_compress
+from exif_writer import scan_and_update_exif
+
 
 def get_grouping_mode_input() -> str:
     """
@@ -406,8 +408,9 @@ def main():
         print("Выберите действие:")
         print(f"  1 - {Fore.CYAN}Сортировка фото и видео{Style.RESET_ALL}")
         print(f"  2 - {Fore.CYAN}Сжатие видео{Style.RESET_ALL}")
+        print(f"  3 - {Fore.CYAN}Обновить EXIF даты из названий файлов{Style.RESET_ALL}")
         
-        action_choice = input("\nВаш выбор (1 или 2): ").strip()
+        action_choice = input("\nВаш выбор (1, 2 или 3): ").strip()
         
         if action_choice == "2":
             # Режим сжатия видео
@@ -424,6 +427,46 @@ def main():
                 break
             
             scan_and_compress(target_path)
+            
+        elif action_choice == "3":
+            # Режим обновления EXIF дат
+            print(f"\n✓ Выбран режим: {Fore.CYAN}Обновить EXIF даты из названий файлов{Style.RESET_ALL}\n")
+            
+            print(f"{Fore.YELLOW}⚠️  ВНИМАНИЕ: Эта операция изменит оригинальные файлы!{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}   Рекомендуется сделать резервную копию перед началом.{Style.RESET_ALL}\n")
+            
+            while True:
+                target_path = input("Введите путь к папке с медиа файлами: ").strip()
+                target_path = target_path.strip("'\"")
+                target_path = os.path.expanduser(target_path)
+                
+                if not os.path.exists(target_path) or not os.path.isdir(target_path):
+                    print(f"⚠️  Папка не существует: {target_path}\n")
+                    continue
+                break
+            
+            # Спрашиваем про рекурсивный поиск
+            while True:
+                recursive_choice = input("\nИскать файлы в подпапках? (1 - Да, 2 - Нет): ").strip()
+                if recursive_choice == "1":
+                    recursive = True
+                    print(f"✓ Рекурсивный поиск: {Fore.GREEN}Включён{Style.RESET_ALL}\n")
+                    break
+                elif recursive_choice == "2":
+                    recursive = False
+                    print(f"✓ Рекурсивный поиск: {Fore.RED}Выключен{Style.RESET_ALL}\n")
+                    break
+                else:
+                    print(f"{Fore.RED}⚠️  Неверный выбор. Введите 1 или 2.{Style.RESET_ALL}\n")
+            
+            # Финальное подтверждение
+            confirm = input(f"\n{Fore.YELLOW}Продолжить? Файлы будут изменены! (yes/no): {Style.RESET_ALL}").strip().lower()
+            if confirm in ['yes', 'y', 'да', 'д']:
+                scan_and_update_exif(target_path, logger, recursive=recursive)
+                print(f"Лог сохранён в: {log_filename}")
+                print(f"{'='*60}\n")
+            else:
+                print(f"\n{Fore.RED}Операция отменена пользователем{Style.RESET_ALL}\n")
             
         else:
             # Режим сортировки (по умолчанию)
